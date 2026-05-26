@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { APP_TITLE, ROUTES } from '../lib/constants'
 
 const navItems = [
@@ -45,6 +46,15 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="border-t border-border p-3">
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="w-full border-l-2 border-transparent py-2 pl-3 pr-3 text-left font-mono text-xs uppercase tracking-wide text-muted transition-colors hover:border-error/50 hover:text-error"
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
