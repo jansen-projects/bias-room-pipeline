@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Supabase CLI runtime files (auto-generated, contains local access tokens)
+supabase/.temp/
+
+# Local env (contains Supabase keys — set these in Vercel dashboard instead)
+.env
+.env.*
+
+# Internal session docs with embedded secrets / proprietary data
+RESUME_PROMPT.md
+TBR_Static_Block_W20.txt
