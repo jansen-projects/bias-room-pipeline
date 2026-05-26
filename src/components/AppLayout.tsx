@@ -1,6 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { APP_TITLE, ROUTES } from '../lib/constants'
+import { useOnboarding } from '../hooks/useOnboarding'
+import { OnboardingModal } from './OnboardingModal'
 
 const navItems = [
   { to: ROUTES.dashboard, label: 'Dashboard' },
@@ -15,6 +17,8 @@ const navItems = [
 ] as const
 
 export function AppLayout() {
+  const { isOpen, open, close } = useOnboarding()
+
   return (
     <div className="flex min-h-screen">
       <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
@@ -47,7 +51,17 @@ export function AppLayout() {
           ))}
         </nav>
 
-        <div className="border-t border-border p-3">
+        <div className="border-t border-border p-3 space-y-1">
+          <button
+            onClick={open}
+            className="flex w-full items-center gap-2 border-l-2 border-transparent py-2 pl-3 pr-3 font-mono text-xs uppercase tracking-wide text-muted transition-colors hover:border-gold/50 hover:text-gold"
+            aria-label="Open operator guide"
+          >
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] font-bold leading-none">
+              ?
+            </span>
+            Help
+          </button>
           <button
             onClick={() => supabase.auth.signOut()}
             className="w-full border-l-2 border-transparent py-2 pl-3 pr-3 text-left font-mono text-xs uppercase tracking-wide text-muted transition-colors hover:border-error/50 hover:text-error"
@@ -62,6 +76,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {isOpen && <OnboardingModal onClose={close} />}
     </div>
   )
 }
