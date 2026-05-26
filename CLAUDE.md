@@ -61,7 +61,8 @@
 - All DB queries go through TanStack Query hooks in `/hooks`
 - No scoring logic in this app — data display only
 - Match the gold/navy design system on every component
-- RLS: anon key = SELECT only; service role key = never exposed to frontend
+- RLS: `authenticated` role = SELECT (requires Supabase Auth login); `service_role` = ALL (Edge Functions only); `anon` = blocked
+- Never expose the service role key in frontend code
 
 ## Known Gotchas
 
