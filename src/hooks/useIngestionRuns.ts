@@ -7,18 +7,25 @@ export const INGESTION_RUNS_QUERY_KEY = 'ingestion-runs' as const
 export interface UseIngestionRunsParams {
   workflowId?: string
   status?: string
-  limit?: number
+  page?: number
+  pageSize?: number
 }
 
 export interface IngestionRunWithErrors extends OpsIngestionRun {
   error_count: number
 }
 
+const DEFAULT_PAGE_SIZE = 25
+
 async function fetchIngestionRuns(params: UseIngestionRunsParams): Promise<{
   runs: IngestionRunWithErrors[]
   totalCount: number
 }> {
-  const limit = params.limit ?? 50
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE
+  const rangeFrom = (page - 1) * pageSize
+  const rangeTo = page * pageSize - 1
+
   const workflowId = params.workflowId?.trim() || undefined
   const status = params.status?.trim() || undefined
 
@@ -37,7 +44,7 @@ async function fetchIngestionRuns(params: UseIngestionRunsParams): Promise<{
   }
 
   const [runsResult, countResult] = await Promise.all([
-    query.order('started_at', { ascending: false }).limit(limit),
+    query.order('started_at', { ascending: false }).range(rangeFrom, rangeTo),
     countQuery,
   ])
 
@@ -72,11 +79,12 @@ async function fetchIngestionRuns(params: UseIngestionRunsParams): Promise<{
 export function useIngestionRuns(params: UseIngestionRunsParams = {}) {
   const workflowId = params.workflowId?.trim() || undefined
   const status = params.status?.trim() || undefined
-  const limit = params.limit ?? 50
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: [INGESTION_RUNS_QUERY_KEY, workflowId, status, limit],
-    queryFn: () => fetchIngestionRuns({ workflowId, status, limit }),
+    queryKey: [INGESTION_RUNS_QUERY_KEY, workflowId, status, page, pageSize],
+    queryFn: () => fetchIngestionRuns({ workflowId, status, page, pageSize }),
     refetchInterval: 30_000,
   })
 

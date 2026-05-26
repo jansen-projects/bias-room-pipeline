@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Pagination } from '../components/Pagination'
 import { RunLogTable } from '../components/RunLogTable'
 import { useRunLog } from '../hooks/useRunLog'
 import { useWorkflowRegistry } from '../hooks/useWorkflowRegistry'
 import type { IngestionRunStatus } from '../types/pipeline'
+
+const PAGE_SIZE = 25
 
 const STATUS_OPTIONS: { value: IngestionRunStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
@@ -20,23 +23,20 @@ export default function RunLog() {
   const [status, setStatus] = useState<string | undefined>()
   const [dateFrom, setDateFrom] = useState<string | undefined>()
   const [dateTo, setDateTo] = useState<string | undefined>()
+  const [page, setPage] = useState(1)
+
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => { setPage(1) }, [workflowId, status, dateFrom, dateTo])
 
   const { workflows, isLoading: registryLoading } = useWorkflowRegistry()
-  const { runs, isLoading, error } = useRunLog({
+  const { runs, totalCount, isLoading, error } = useRunLog({
     workflowId,
     status,
     dateFrom,
     dateTo,
+    page,
+    pageSize: PAGE_SIZE,
   })
-
-  useEffect(() => {
-    console.log('[RunLog] filter state → useRunLog:', {
-      workflowId: workflowId ?? null,
-      status: status ?? null,
-      dateFrom: dateFrom ?? null,
-      dateTo: dateTo ?? null,
-    })
-  }, [workflowId, status, dateFrom, dateTo])
 
   const hasActiveFilters = useMemo(
     () => Boolean(workflowId || status || dateFrom || dateTo),
@@ -142,7 +142,9 @@ export default function RunLog() {
         </div>
 
         <p className="font-mono text-xs text-muted">
-          {isLoading ? 'Loading runs…' : `Showing ${runs.length} runs`}
+          {isLoading
+            ? 'Loading runs…'
+            : `${totalCount.toLocaleString()} run${totalCount === 1 ? '' : 's'} total`}
         </p>
       </section>
 
@@ -156,6 +158,13 @@ export default function RunLog() {
       )}
 
       <RunLogTable runs={runs} />
+
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={totalCount}
+        onChange={setPage}
+      />
     </div>
   )
 }

@@ -4,14 +4,15 @@ import type { OpsIngestionRun, RunLogEntry } from '../types/pipeline'
 
 export const RUN_LOG_QUERY_KEY = 'run-log' as const
 
-const DEFAULT_LIMIT = 100
+const DEFAULT_PAGE_SIZE = 25
 
 export interface UseRunLogParams {
   workflowId?: string
   status?: string
   dateFrom?: string
   dateTo?: string
-  limit?: number
+  page?: number
+  pageSize?: number
 }
 
 function toStartOfDayIso(value: string): string {
@@ -52,7 +53,10 @@ async function fetchRunLog(params: UseRunLogParams): Promise<{
   runs: RunLogEntry[]
   totalCount: number
 }> {
-  const limit = params.limit ?? DEFAULT_LIMIT
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE
+  const rangeFrom = (page - 1) * pageSize
+  const rangeTo = page * pageSize - 1
 
   const workflowId = params.workflowId?.trim() || undefined
   const status = params.status?.trim() || undefined
@@ -66,7 +70,8 @@ async function fetchRunLog(params: UseRunLogParams): Promise<{
     dateTo: dateTo ?? null,
     dateFromGte: null as string | null,
     dateToLte: null as string | null,
-    limit,
+    page,
+    pageSize,
   }
 
   console.group('[useRunLog] fetchRunLog')
@@ -112,7 +117,7 @@ async function fetchRunLog(params: UseRunLogParams): Promise<{
 
   const runsResult = await runsQuery
     .order('started_at', { ascending: false })
-    .limit(limit)
+    .range(rangeFrom, rangeTo)
 
   logSupabaseResponse('filtered runs query', runsResult)
 
@@ -173,12 +178,13 @@ export function useRunLog(params: UseRunLogParams = {}) {
   const status = params.status?.trim() || undefined
   const dateFrom = params.dateFrom?.trim() || undefined
   const dateTo = params.dateTo?.trim() || undefined
-  const limit = params.limit ?? DEFAULT_LIMIT
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE
 
   const { data, isLoading, error } = useQuery({
-    queryKey: [RUN_LOG_QUERY_KEY, workflowId, status, dateFrom, dateTo, limit],
+    queryKey: [RUN_LOG_QUERY_KEY, workflowId, status, dateFrom, dateTo, page, pageSize],
     queryFn: () =>
-      fetchRunLog({ workflowId, status, dateFrom, dateTo, limit }),
+      fetchRunLog({ workflowId, status, dateFrom, dateTo, page, pageSize }),
   })
 
   return {

@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { Pagination } from '../components/Pagination'
 import { useStaleAlerts } from '../hooks/useStaleAlerts'
 import type { StaleAlert } from '../hooks/useStaleAlerts'
+
+const PAGE_SIZE = 25
 
 function formatAge(minutes: number): string {
   if (minutes >= 999999) return 'Never run'
@@ -76,9 +79,11 @@ function AlertRow({
 
 export default function Alerts() {
   const [showResolved, setShowResolved] = useState(false)
+  const [page, setPage] = useState(1)
 
   const {
     alerts,
+    totalCount,
     criticalCount,
     warningCount,
     isLoading,
@@ -88,7 +93,7 @@ export default function Alerts() {
     isResolving,
     resolveAll,
     isResolvingAll,
-  } = useStaleAlerts(showResolved)
+  } = useStaleAlerts(showResolved, page, PAGE_SIZE)
 
   const unresolved = alerts.filter((a) => !a.is_resolved)
 
@@ -112,7 +117,7 @@ export default function Alerts() {
         {[
           { label: 'Critical', value: criticalCount, color: criticalCount > 0 ? 'text-error' : 'text-muted' },
           { label: 'Warning', value: warningCount, color: warningCount > 0 ? 'text-warning' : 'text-muted' },
-          { label: 'Unresolved', value: unresolved.length, color: unresolved.length > 0 ? 'text-foreground' : 'text-success' },
+          { label: 'Total', value: totalCount, color: 'text-foreground' },
         ].map(({ label, value, color }) => (
           <div key={label} className="rounded-lg border border-border bg-card px-4 py-3">
             <p className="font-mono text-xs uppercase tracking-widest text-muted">{label}</p>
@@ -127,7 +132,7 @@ export default function Alerts() {
           <input
             type="checkbox"
             checked={showResolved}
-            onChange={(e) => setShowResolved(e.target.checked)}
+            onChange={(e) => { setShowResolved(e.target.checked); setPage(1) }}
             className="accent-gold"
           />
           Show resolved
@@ -194,6 +199,13 @@ export default function Alerts() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={totalCount}
+        onChange={setPage}
+      />
     </div>
   )
 }

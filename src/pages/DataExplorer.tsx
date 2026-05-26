@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Pagination } from '../components/Pagination'
 import {
   SILVER_TABLES,
   tableHasCurrencyFilter,
@@ -6,6 +7,8 @@ import {
   type SilverTable,
 } from '../hooks/useDataExplorer'
 import type { CurrencyCode } from '../types/pipeline'
+
+const PAGE_SIZE = 50
 
 const CURRENCIES: CurrencyCode[] = [
   'USD', 'EUR', 'JPY', 'GBP', 'CHF', 'CAD', 'AUD', 'NZD', 'XAU',
@@ -80,14 +83,17 @@ export default function DataExplorer() {
   const [currency, setCurrency] = useState<string | undefined>()
   const [dateFrom, setDateFrom] = useState<string | undefined>()
   const [dateTo, setDateTo] = useState<string | undefined>()
+  const [page, setPage] = useState(1)
 
   const supportsCurrency = tableHasCurrencyFilter(table)
 
-  const { rows, columns, isLoading, error } = useDataExplorer({
+  const { rows, columns, totalCount, isLoading, error } = useDataExplorer({
     table,
     currency: supportsCurrency ? currency : undefined,
     dateFrom,
     dateTo,
+    page,
+    pageSize: PAGE_SIZE,
   })
 
   const hasActiveFilters = useMemo(
@@ -98,12 +104,29 @@ export default function DataExplorer() {
   function handleTableChange(next: SilverTable) {
     setTable(next)
     setCurrency(undefined)
+    setPage(1)
   }
 
   function clearFilters() {
     setCurrency(undefined)
     setDateFrom(undefined)
     setDateTo(undefined)
+    setPage(1)
+  }
+
+  function handleCurrencyChange(code: string | undefined) {
+    setCurrency(code)
+    setPage(1)
+  }
+
+  function handleDateFromChange(value: string | undefined) {
+    setDateFrom(value)
+    setPage(1)
+  }
+
+  function handleDateToChange(value: string | undefined) {
+    setDateTo(value)
+    setPage(1)
   }
 
   return (
@@ -143,7 +166,7 @@ export default function DataExplorer() {
             <input
               type="date"
               value={dateFrom ?? ''}
-              onChange={(e) => setDateFrom(e.target.value || undefined)}
+              onChange={(e) => handleDateFromChange(e.target.value || undefined)}
               className={fieldClassName}
               aria-label="Filter from date"
             />
@@ -156,7 +179,7 @@ export default function DataExplorer() {
             <input
               type="date"
               value={dateTo ?? ''}
-              onChange={(e) => setDateTo(e.target.value || undefined)}
+              onChange={(e) => handleDateToChange(e.target.value || undefined)}
               className={fieldClassName}
               aria-label="Filter to date"
             />
@@ -181,7 +204,7 @@ export default function DataExplorer() {
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => setCurrency(undefined)}
+                onClick={() => handleCurrencyChange(undefined)}
                 className={[
                   'rounded-full border px-3 py-1 font-mono text-[11px] font-medium transition-colors',
                   !currency
@@ -195,7 +218,7 @@ export default function DataExplorer() {
                 <button
                   key={code}
                   type="button"
-                  onClick={() => setCurrency(currency === code ? undefined : code)}
+                  onClick={() => handleCurrencyChange(currency === code ? undefined : code)}
                   className={[
                     'rounded-full border px-3 py-1 font-mono text-[11px] font-medium transition-colors',
                     currency === code
@@ -217,7 +240,7 @@ export default function DataExplorer() {
         <p className="font-mono text-xs text-muted">
           {isLoading
             ? 'Loading…'
-            : `Showing ${rows.length.toLocaleString()} row${rows.length === 1 ? '' : 's'}`}
+            : `${totalCount.toLocaleString()} row${totalCount === 1 ? '' : 's'} total`}
         </p>
       </section>
 
@@ -278,6 +301,13 @@ export default function DataExplorer() {
           </table>
         </div>
       )}
+
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={totalCount}
+        onChange={setPage}
+      />
     </div>
   )
 }

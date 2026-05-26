@@ -41,55 +41,75 @@ export interface UseDataExplorerParams {
   currency?: string
   dateFrom?: string
   dateTo?: string
-  limit?: number
+  page?: number
+  pageSize?: number
 }
 
-const DEFAULT_LIMIT = 200
+const DEFAULT_PAGE_SIZE = 50
 
 async function fetchTableData(
   params: UseDataExplorerParams,
-): Promise<Record<string, unknown>[]> {
-  const { table, currency, dateFrom, dateTo, limit = DEFAULT_LIMIT } = params
+): Promise<{ rows: Record<string, unknown>[]; totalCount: number }> {
+  const { table, currency, dateFrom, dateTo } = params
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE
+  const rangeFrom = (page - 1) * pageSize
+  const rangeTo = page * pageSize - 1
+
   const config = TABLE_CONFIG[table]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from(table) as any).select('*')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let countQuery = (supabase.from(table) as any).select('*', { count: 'exact', head: true })
 
   if (currency && config.currencyColumn) {
     if (config.currencyMatchMode === 'ilike') {
       query = query.ilike(config.currencyColumn, `%${currency}%`)
+      countQuery = countQuery.ilike(config.currencyColumn, `%${currency}%`)
     } else {
       query = query.eq(config.currencyColumn, currency)
+      countQuery = countQuery.eq(config.currencyColumn, currency)
     }
   }
 
   if (dateFrom) {
     query = query.gte(config.dateColumn, dateFrom)
+    countQuery = countQuery.gte(config.dateColumn, dateFrom)
   }
 
   if (dateTo) {
     query = query.lte(config.dateColumn, dateTo)
+    countQuery = countQuery.lte(config.dateColumn, dateTo)
   }
 
-  const { data, error } = await query
-    .order(config.dateColumn, { ascending: false })
-    .limit(limit)
+  const [result, countResult] = await Promise.all([
+    query.order(config.dateColumn, { ascending: false }).range(rangeFrom, rangeTo),
+    countQuery,
+  ])
 
-  if (error) throw error
+  if (result.error) throw result.error
+  if (countResult.error) throw countResult.error
 
-  return (data ?? []) as Record<string, unknown>[]
+  return {
+    rows: (result.data ?? []) as Record<string, unknown>[],
+    totalCount: countResult.count ?? 0,
+  }
 }
 
 export function useDataExplorer(params: UseDataExplorerParams) {
-  const { table, currency, dateFrom, dateTo, limit = DEFAULT_LIMIT } = params
+  const { table, currency, dateFrom, dateTo } = params
+  const page = params.page ?? 1
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['data-explorer', table, currency, dateFrom, dateTo, limit],
-    queryFn: () => fetchTableData({ table, currency, dateFrom, dateTo, limit }),
+    queryKey: ['data-explorer', table, currency, dateFrom, dateTo, page, pageSize],
+    queryFn: () => fetchTableData({ table, currency, dateFrom, dateTo, page, pageSize }),
   })
 
-  const rows = data ?? []
+  const rows = data?.rows ?? []
+  const totalCount = data?.totalCount ?? 0
   const columns = rows.length > 0 ? Object.keys(rows[0]) : []
 
-  return { rows, columns, isLoading, error: error ?? null }
+  return { rows, columns, totalCount, isLoading, error: error ?? null }
 }

@@ -4,18 +4,83 @@ import { WorkflowCard } from '../components/WorkflowCard'
 import { WorkflowCardSkeleton } from '../components/WorkflowCardSkeleton'
 import { useWorkflowStatus } from '../hooks/useWorkflowStatus'
 import { isWorkflowHealthy } from '../lib/workflowHealth'
+import type { WorkflowStatus } from '../types/pipeline'
 
-const SKELETON_COUNT = 9
+// Groups define the display order and category labels for all 18 workflows
+const WORKFLOW_GROUPS: { label: string; ids: string[] }[] = [
+  {
+    label: 'FX & Rates',
+    ids: ['wf_forex_daily_fetch', 'wf_cb_rates_daily'],
+  },
+  {
+    label: 'Market Data',
+    ids: ['wf_market_indices_daily', 'wf_commodities_daily', 'wf_gold_context_daily'],
+  },
+  {
+    label: 'Fixed Income',
+    ids: [
+      'wf_bond_yields_nominal_daily',
+      'wf_real_yields_daily',
+      'wf_breakeven_daily',
+    ],
+  },
+  {
+    label: 'Macro',
+    ids: [
+      'wf_cot_weekly',
+      'wf_economic_calendar_daily',
+      'wf_inflation_forecasts_weekly',
+    ],
+  },
+  {
+    label: 'Derived',
+    ids: [
+      'wf_compute_atr14_daily',
+      'wf_fx_friday_close_snapshot',
+      'wf_daily_close_snapshot',
+      'wf_weekly_anchor_snapshot',
+    ],
+  },
+  {
+    label: 'Operations',
+    ids: ['wf_stale_data_monitor', 'wf_dlq_retry', 'wf_health_check_hourly'],
+  },
+]
+
+const SKELETON_PER_GROUP = [2, 3, 3, 3, 4, 3]
 
 function formatLastUpdated(timestamp: number | undefined): string {
-  if (!timestamp) {
-    return '—'
-  }
-
+  if (!timestamp) return '—'
   return new Date(timestamp).toLocaleString(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
+}
+
+interface GroupSectionProps {
+  label: string
+  workflows: WorkflowStatus[]
+  skeletonCount: number
+  isLoading: boolean
+}
+
+function GroupSection({ label, workflows, skeletonCount, isLoading }: GroupSectionProps) {
+  return (
+    <section className="space-y-3">
+      <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+        {label}
+      </h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {isLoading
+          ? Array.from({ length: skeletonCount }).map((_, i) => (
+              <WorkflowCardSkeleton key={i} />
+            ))
+          : workflows.map((wf) => (
+              <WorkflowCard key={wf.workflow_id} workflow={wf} />
+            ))}
+      </div>
+    </section>
+  )
 }
 
 export default function Dashboard() {
@@ -28,11 +93,31 @@ export default function Dashboard() {
 
   const totalCount = workflows.length
   const hasFailedWorkflow = workflows.some(
-    (workflow) => workflow.latest_run?.status === 'failed',
+    (wf) => wf.latest_run?.status === 'failed',
+  )
+
+  // Build a lookup map once
+  const workflowMap = useMemo(() => {
+    const map = new Map<string, WorkflowStatus>()
+    for (const wf of workflows) map.set(wf.workflow_id, wf)
+    return map
+  }, [workflows])
+
+  // For each group, resolve the workflow objects (only known IDs are shown)
+  const groups = useMemo(
+    () =>
+      WORKFLOW_GROUPS.map((g) => ({
+        label: g.label,
+        workflows: g.ids.flatMap((id) => {
+          const wf = workflowMap.get(id)
+          return wf ? [wf] : []
+        }),
+      })),
+    [workflowMap],
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {hasFailedWorkflow && (
         <div
           role="alert"
@@ -91,18 +176,17 @@ export default function Dashboard() {
         </div>
       )}
 
-      <section
-        className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-        aria-busy={isLoading}
-      >
-        {isLoading
-          ? Array.from({ length: SKELETON_COUNT }).map((_, index) => (
-              <WorkflowCardSkeleton key={index} />
-            ))
-          : workflows.map((workflow) => (
-              <WorkflowCard key={workflow.workflow_id} workflow={workflow} />
-            ))}
-      </section>
+      <div className="space-y-8">
+        {WORKFLOW_GROUPS.map((g, i) => (
+          <GroupSection
+            key={g.label}
+            label={g.label}
+            workflows={groups[i]?.workflows ?? []}
+            skeletonCount={SKELETON_PER_GROUP[i] ?? 3}
+            isLoading={isLoading}
+          />
+        ))}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Pagination } from '../components/Pagination'
 import { useIngestionRuns } from '../hooks/useIngestionRuns'
 import type { IngestionRunWithErrors } from '../hooks/useIngestionRuns'
+
+const PAGE_SIZE = 25
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
   if (!completedAt) return '—'
@@ -122,11 +125,16 @@ function RunRow({ run }: { run: IngestionRunWithErrors }) {
 export default function Ingestion() {
   const [workflowFilter, setWorkflowFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1) }, [workflowFilter, statusFilter])
 
   const { runs, totalCount, isLoading, error, refetch } = useIngestionRuns({
     workflowId: workflowFilter,
     status: statusFilter,
-    limit: 100,
+    page,
+    pageSize: PAGE_SIZE,
   })
 
   const successCount = runs.filter((r) => r.status === 'success').length
@@ -150,7 +158,7 @@ export default function Ingestion() {
       {/* Summary stat row */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Total shown', value: totalCount },
+          { label: 'Total runs', value: totalCount },
           { label: 'Success', value: successCount, color: 'text-success' },
           { label: 'Failed', value: failedCount, color: failedCount > 0 ? 'text-error' : 'text-muted' },
         ].map(({ label, value, color }) => (
@@ -231,6 +239,13 @@ export default function Ingestion() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={totalCount}
+        onChange={setPage}
+      />
     </div>
   )
 }
