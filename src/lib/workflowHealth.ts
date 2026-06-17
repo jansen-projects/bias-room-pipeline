@@ -14,7 +14,8 @@ export function isWorkflowStale(workflow: WorkflowStatus): boolean {
 }
 
 export function isWorkflowHealthy(workflow: WorkflowStatus): boolean {
-  if (!workflow.latest_run || workflow.latest_run.status !== 'success') {
+  const s = workflow.latest_run?.status
+  if (!workflow.latest_run || (s !== 'success' && s !== 'partial_success')) {
     return false
   }
 

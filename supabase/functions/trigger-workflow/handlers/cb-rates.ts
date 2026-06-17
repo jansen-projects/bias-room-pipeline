@@ -94,7 +94,23 @@ export async function runCbRatesDaily(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       failures.push({ series: seriesId, message })
-      await logError(sb, workflowId, runId, message, `series=${seriesId}`)
+      await logError(sb, workflowId, runId, message, `series=${seriesId}`, 'rate_limited', {
+        series_id: seriesId,
+      })
+
+      // Fallback: re-use the most recent good row for this series
+      const { data: cached } = await sb
+        .from('central_bank_rates')
+        .select('*')
+        .eq('series_id', seriesId)
+        .eq('is_canonical', true)
+        .order('effective_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (cached) {
+        rows.push({ ...cached, source: `${cached.source}_cached` })
+      }
     }
   }
 

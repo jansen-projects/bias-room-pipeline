@@ -47,7 +47,7 @@ export async function runBreakevenDaily(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     failures.push({ series: 'T5YIE', message })
-    await logError(sb, workflowId, runId, message, 'FRED/T5YIE', 'http_error', {
+    await logError(sb, workflowId, runId, message, 'FRED/T5YIE', 'rate_limited', {
       series: 'T5YIE',
     })
   }
@@ -59,13 +59,33 @@ export async function runBreakevenDaily(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     failures.push({ series: 'T10YIE', message })
-    await logError(sb, workflowId, runId, message, 'FRED/T10YIE', 'http_error', {
+    await logError(sb, workflowId, runId, message, 'FRED/T10YIE', 'rate_limited', {
       series: 'T10YIE',
     })
   }
 
+  // Fallback: if both failed, re-use the most recent good row
   if (!t5yie && !t10yie) {
-    await markRunFailed(sb, runId, 'Both FRED breakeven series failed', 2)
+    const { data: cached } = await sb
+      .from('breakeven_inflation')
+      .select('effective_date, breakeven_2y, breakeven_10y')
+      .eq('currency_code', 'USD')
+      .order('effective_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (cached) {
+      t5yie = cached.breakeven_2y != null
+        ? { date: cached.effective_date, value: cached.breakeven_2y }
+        : null
+      t10yie = cached.breakeven_10y != null
+        ? { date: cached.effective_date, value: cached.breakeven_10y }
+        : null
+    }
+  }
+
+  if (!t5yie && !t10yie) {
+    await markRunFailed(sb, runId, 'Both FRED breakeven series failed and no cached data', 2)
     return json({ success: false, error: 'all_series_failed', run_id: runId }, 500)
   }
 

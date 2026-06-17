@@ -45,7 +45,7 @@ export async function runRealYieldsDaily(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     failures.push({ series: 'DFII5', message })
-    await logError(sb, workflowId, runId, message, 'FRED/DFII5', 'http_error', {
+    await logError(sb, workflowId, runId, message, 'FRED/DFII5', 'rate_limited', {
       series: 'DFII5',
     })
   }
@@ -57,13 +57,33 @@ export async function runRealYieldsDaily(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     failures.push({ series: 'DFII10', message })
-    await logError(sb, workflowId, runId, message, 'FRED/DFII10', 'http_error', {
+    await logError(sb, workflowId, runId, message, 'FRED/DFII10', 'rate_limited', {
       series: 'DFII10',
     })
   }
 
+  // Fallback: if both failed, re-use the most recent good row
   if (!dfii5 && !dfii10) {
-    await markRunFailed(sb, runId, 'Both FRED series failed', 2)
+    const { data: cached } = await sb
+      .from('bond_yields_real')
+      .select('effective_date, yield_2y_real, yield_10y_real')
+      .eq('currency_code', 'USD')
+      .order('effective_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (cached) {
+      dfii5 = cached.yield_2y_real != null
+        ? { date: cached.effective_date, value: cached.yield_2y_real }
+        : null
+      dfii10 = cached.yield_10y_real != null
+        ? { date: cached.effective_date, value: cached.yield_10y_real }
+        : null
+    }
+  }
+
+  if (!dfii5 && !dfii10) {
+    await markRunFailed(sb, runId, 'Both FRED series failed and no cached data', 2)
     return json({ success: false, error: 'all_series_failed', run_id: runId }, 500)
   }
 

@@ -11,6 +11,7 @@ const STATUS_OPTIONS: { value: IngestionRunStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
   { value: 'running', label: 'running' },
   { value: 'success', label: 'success' },
+  { value: 'partial_success', label: 'partial success' },
   { value: 'failed', label: 'failed' },
   { value: 'skipped', label: 'skipped' },
 ]

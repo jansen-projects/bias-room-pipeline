@@ -82,8 +82,12 @@ export async function markRunSuccess(
   errorMessage: string | null = null,
   recordsSkippedDedup: number | null = null,
 ): Promise<void> {
+  const status = errorMessage
+    ? (recordsUpserted > 0 ? 'partial_success' : 'failed')
+    : 'success'
+
   await sb.from('ops_ingestion_runs').update({
-    status: errorMessage ? 'failed' : 'success',
+    status,
     completed_at: new Date().toISOString(),
     records_fetched: recordsFetched,
     records_upserted: recordsUpserted,

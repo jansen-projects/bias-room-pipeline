@@ -6,6 +6,7 @@ import {
   useDataExplorer,
   type SilverTable,
 } from '../hooks/useDataExplorer'
+import { downloadMarkdown, generateBriefingMarkdown } from '../lib/exportBriefing'
 import type { CurrencyCode } from '../types/pipeline'
 
 const PAGE_SIZE = 50
@@ -84,6 +85,20 @@ export default function DataExplorer() {
   const [dateFrom, setDateFrom] = useState<string | undefined>()
   const [dateTo, setDateTo] = useState<string | undefined>()
   const [page, setPage] = useState(1)
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExportBriefing() {
+    setExporting(true)
+    try {
+      const md = await generateBriefingMarkdown()
+      const date = new Date().toISOString().slice(0, 10)
+      downloadMarkdown(md, `forex-briefing-${date}.md`)
+    } catch (err) {
+      console.error('Export failed:', err)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const supportsCurrency = tableHasCurrencyFilter(table)
 
@@ -132,10 +147,22 @@ export default function DataExplorer() {
   return (
     <div className="space-y-6">
       <header className="space-y-2 border-b border-border pb-6">
-        <h1 className="font-display text-4xl italic text-gold">Data Explorer</h1>
-        <p className="font-mono text-xs text-muted">
-          Read any silver table — filter by currency and date to spot-check mid-week
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-4xl italic text-gold">Data Explorer</h1>
+            <p className="mt-2 font-mono text-xs text-muted">
+              Read any silver table — filter by currency and date to spot-check mid-week
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportBriefing}
+            disabled={exporting}
+            className="shrink-0 rounded-md border border-gold/40 bg-background px-4 py-2 font-mono text-xs uppercase tracking-wide text-gold transition-colors hover:border-gold hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting ? 'Exporting…' : 'Export Briefing'}
+          </button>
+        </div>
       </header>
 
       <section className="space-y-4">

@@ -73,7 +73,7 @@ export async function runStaleDataMonitor(
   const { data: runRows, error: runErr } = await sb
     .from('ops_ingestion_runs')
     .select('workflow_id, completed_at')
-    .eq('status', 'success')
+    .in('status', ['success', 'partial_success'])
     .in('workflow_id', uniqueWorkflows)
     .order('completed_at', { ascending: false })
 

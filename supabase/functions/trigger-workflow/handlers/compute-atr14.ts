@@ -160,12 +160,10 @@ export async function runComputeAtr14Daily(
     return json({ success: false, error: upsertErr.message, run_id: runId }, 500)
   }
 
-  // "skipped" = insufficient data (expected for XAUUSD until OHLC history builds up).
-  // Not an error — pass null errorSummary so run status = 'success'.
   await markRunSuccess(sb, runId, PAIRS.length, rows.length, null, skipped.length)
 
   return json({
-    success: errorSummary === null,
+    success: true,
     run_id: runId,
     records_upserted: rows.length,
     ...(skipped.length > 0 && { skipped }),

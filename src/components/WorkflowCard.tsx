@@ -10,8 +10,12 @@ function statusLabel(workflow: WorkflowStatus): string {
     return 'No runs'
   }
 
-  if (isWorkflowStale(workflow) && workflow.latest_run.status === 'success') {
+  if (isWorkflowStale(workflow) && (workflow.latest_run.status === 'success' || workflow.latest_run.status === 'partial_success')) {
     return 'Stale'
+  }
+
+  if (workflow.latest_run.status === 'partial_success') {
+    return 'Partial'
   }
 
   return workflow.latest_run.status
@@ -27,7 +31,7 @@ function statusColorClass(workflow: WorkflowStatus): string {
     return 'text-error'
   }
 
-  if (run.status === 'running') {
+  if (run.status === 'running' || run.status === 'partial_success') {
     return 'text-gold'
   }
 

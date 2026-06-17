@@ -1,6 +1,7 @@
 export type IngestionRunStatus =
   | 'running'
   | 'success'
+  | 'partial_success'
   | 'failed'
   | 'skipped'
 

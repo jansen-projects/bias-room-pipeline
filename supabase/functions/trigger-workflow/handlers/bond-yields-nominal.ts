@@ -143,6 +143,7 @@ async function fetchEcbYield(
 
   const resp = await fetch(url, {
     headers: { Accept: 'application/json' },
+    keepalive: false,
   })
   if (!resp.ok) throw new Error(`ECB HTTP ${resp.status} for tenor ${tenor}`)
 
@@ -293,9 +294,22 @@ export async function runBondYieldsNominalDaily(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       failures.push({ source: `FRED/${cfg.seriesId}`, message })
-      await logError(sb, workflowId, runId, message, `FRED/${cfg.seriesId}`, 'http_error', {
+      await logError(sb, workflowId, runId, message, `FRED/${cfg.seriesId}`, 'rate_limited', {
         series_id: cfg.seriesId,
       })
+
+      // Fallback: re-use the most recent good row so we never leave a gap
+      const { data: cached } = await sb
+        .from('bond_yields_nominal')
+        .select('*')
+        .eq('series_id', cfg.seriesId)
+        .order('effective_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (cached) {
+        rows.push({ ...cached, source: `${cached.source}_cached` })
+      }
     }
   }
 

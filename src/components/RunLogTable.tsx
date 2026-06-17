@@ -16,6 +16,7 @@ const STATUS_STYLES: Record<
   { pill: string; showPulse?: boolean }
 > = {
   success: { pill: 'bg-success text-background' },
+  partial_success: { pill: 'bg-warning text-background' },
   failed: { pill: 'bg-error text-background' },
   running: { pill: 'bg-warning text-background', showPulse: true },
   skipped: { pill: 'bg-skipped text-background' },
@@ -37,13 +38,13 @@ function StatusBadge({ status }: { status: IngestionRunStatus }) {
           aria-hidden
         />
       )}
-      {status}
+      {status === 'partial_success' ? 'partial' : status}
     </span>
   )
 }
 
 function RecordsCell({ run }: { run: RunLogEntry }) {
-  if (run.status === 'success' && run.records_upserted != null) {
+  if ((run.status === 'success' || run.status === 'partial_success') && run.records_upserted != null) {
     return (
       <span className="font-mono text-xs text-success">
         ↑ {run.records_upserted.toLocaleString()} upserted

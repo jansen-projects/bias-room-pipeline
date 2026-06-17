@@ -26,6 +26,7 @@ function formatTs(ts: string): string {
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     success: 'bg-success/15 text-success border-success/30',
+    partial_success: 'bg-warning/15 text-warning border-warning/30',
     failed: 'bg-error/15 text-error border-error/30',
     running: 'bg-gold/15 text-gold border-gold/30',
     skipped: 'bg-skipped/15 text-skipped border-skipped/30',
@@ -35,7 +36,7 @@ function StatusBadge({ status }: { status: string }) {
     <span
       className={`inline-block rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${cls}`}
     >
-      {status}
+      {status === 'partial_success' ? 'partial' : status}
     </span>
   )
 }
@@ -138,6 +139,7 @@ export default function Ingestion() {
   })
 
   const successCount = runs.filter((r) => r.status === 'success').length
+  const partialCount = runs.filter((r) => r.status === 'partial_success').length
   const failedCount = runs.filter((r) => r.status === 'failed').length
 
   return (
@@ -156,10 +158,11 @@ export default function Ingestion() {
       </header>
 
       {/* Summary stat row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: 'Total runs', value: totalCount },
           { label: 'Success', value: successCount, color: 'text-success' },
+          { label: 'Partial', value: partialCount, color: partialCount > 0 ? 'text-warning' : 'text-muted' },
           { label: 'Failed', value: failedCount, color: failedCount > 0 ? 'text-error' : 'text-muted' },
         ].map(({ label, value, color }) => (
           <div
@@ -188,6 +191,7 @@ export default function Ingestion() {
         >
           <option value="">All statuses</option>
           <option value="success">Success</option>
+          <option value="partial_success">Partial Success</option>
           <option value="failed">Failed</option>
           <option value="running">Running</option>
           <option value="skipped">Skipped</option>

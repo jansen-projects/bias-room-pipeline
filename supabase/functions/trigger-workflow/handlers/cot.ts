@@ -37,7 +37,12 @@ async function fetchCotData(): Promise<CotRow[]> {
     `&$order=report_date_as_yyyy_mm_dd DESC` +
     `&$limit=9`
 
-  const resp = await fetch(url, { headers: { Accept: 'application/json' } })
+  const resp = await fetch(url, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (compatible; BiasRoom/1.0)',
+    },
+  })
   if (!resp.ok) throw new Error(`CFTC API ${resp.status}`)
 
   const records: CftcRecord[] = await resp.json()
