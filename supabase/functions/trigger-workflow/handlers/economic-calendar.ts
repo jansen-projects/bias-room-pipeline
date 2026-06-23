@@ -26,6 +26,8 @@ interface FfEvent {
 interface CalendarRow {
   event_date: string              // date
   event_time: string | null       // time without time zone
+  event_time_et: string | null    // ET (UTC-4/-5) from FF offset
+  event_time_pht: string | null   // PHT (UTC+8)
   currency: string
   event_name: string
   impact: string
@@ -37,16 +39,37 @@ interface CalendarRow {
   data_frequency: string
 }
 
-/** Split "2026-05-23T14:30:00-04:00" → { eventDate: "2026-05-23", eventTime: "14:30:00" } */
-function parseFfDate(dateStr: string): { eventDate: string; eventTime: string | null } {
+function parseFfDate(dateStr: string): {
+  eventDate: string
+  eventTime: string | null
+  eventTimeEt: string | null
+  eventTimePht: string | null
+} {
   const tIdx = dateStr.indexOf('T')
   if (tIdx < 0) {
-    return { eventDate: dateStr.slice(0, 10), eventTime: null }
+    return { eventDate: dateStr.slice(0, 10), eventTime: null, eventTimeEt: null, eventTimePht: null }
   }
   const eventDate = dateStr.slice(0, tIdx)
   const timePart = dateStr.slice(tIdx + 1)
   const m = timePart.match(/^(\d{2}:\d{2}:\d{2})/)
-  return { eventDate, eventTime: m ? m[1] : null }
+  const eventTime = m ? m[1] : null
+
+  // FF timestamps include offset (e.g. -04:00 for EDT). The time portion IS ET.
+  const eventTimeEt = eventTime
+
+  // Compute PHT (UTC+8) from the full ISO timestamp
+  let eventTimePht: string | null = null
+  if (eventTime) {
+    try {
+      const utcMs = new Date(dateStr).getTime()
+      if (!isNaN(utcMs)) {
+        const pht = new Date(utcMs + 8 * 3_600_000)
+        eventTimePht = pht.toISOString().slice(11, 19)
+      }
+    } catch { /* leave null */ }
+  }
+
+  return { eventDate, eventTime, eventTimeEt, eventTimePht }
 }
 
 export async function runEconomicCalendarDaily(
@@ -91,19 +114,21 @@ export async function runEconomicCalendarDaily(
   const rows: CalendarRow[] = events
     .filter((ev) => VALID_IMPACTS.has(ev.impact))
     .map((ev) => {
-      const { eventDate, eventTime } = parseFfDate(ev.date ?? '')
+      const { eventDate, eventTime, eventTimeEt, eventTimePht } = parseFfDate(ev.date ?? '')
       return {
         event_date: eventDate,
         event_time: eventTime,
-        currency: ev.country,          // FF uses "country" but it's the 3-letter currency code
+        event_time_et: eventTimeEt,
+        event_time_pht: eventTimePht,
+        currency: ev.country,
         event_name: ev.title,
         impact: ev.impact,
-        actual: null,                  // always null in FF JSON feed
-        forecast: ev.forecast || null, // empty string → null
+        actual: null,
+        forecast: ev.forecast || null,
         previous: ev.previous || null,
         source: 'ForexFactory',
         source_timestamp: sourceTs,
-        data_frequency: 'event',       // CHECK constraint: only 'event' or NULL allowed
+        data_frequency: 'event',
       }
     })
 

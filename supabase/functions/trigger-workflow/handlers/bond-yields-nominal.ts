@@ -429,6 +429,47 @@ export async function runBondYieldsNominalDaily(
     return json({ success: false, error: upsertErr.message, run_id: runId }, 500)
   }
 
+  // ── Post-upsert: compute vs_usd_bps and five_d_delta_bps ────────────
+  const usdByDate: Record<string, { usd2y: number | null; usd10y: number | null }> = {}
+  for (const r of rows) {
+    if (r.currency !== 'USD') continue
+    if (!usdByDate[r.effective_date]) usdByDate[r.effective_date] = { usd2y: null, usd10y: null }
+    if (r.series_id === 'DGS2') usdByDate[r.effective_date].usd2y = r.yield
+    if (r.series_id === 'DGS10') usdByDate[r.effective_date].usd10y = r.yield
+  }
+
+  for (const r of rows) {
+    const usd = usdByDate[r.effective_date]
+    const is2y = r.instrument.includes('2Y')
+    const usdRef = usd ? (is2y ? usd.usd2y : usd.usd10y) : null
+    const vsUsdBps = usdRef != null
+      ? Math.round((r.yield - usdRef) * 100 * 100) / 100
+      : null
+
+    const fiveDaysAgo = new Date(
+      new Date(r.effective_date + 'T00:00:00Z').getTime() - 5 * 86_400_000,
+    ).toISOString().slice(0, 10)
+
+    const { data: prevRow } = await sb
+      .from('bond_yields_nominal')
+      .select('yield')
+      .eq('series_id', r.series_id)
+      .lte('effective_date', fiveDaysAgo)
+      .order('effective_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const fiveDDelta = prevRow
+      ? Math.round((r.yield - prevRow.yield) * 100 * 100) / 100
+      : null
+
+    await sb
+      .from('bond_yields_nominal')
+      .update({ vs_usd_bps: vsUsdBps, five_d_delta_bps: fiveDDelta })
+      .eq('series_id', r.series_id)
+      .eq('effective_date', r.effective_date)
+  }
+
   const totalSeries = FRED_SERIES.length + ECB_SERIES.length + 2 /* BOC */ + 2 /* MOF */
   const errorSummary =
     failures.length > 0

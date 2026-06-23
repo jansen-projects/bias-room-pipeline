@@ -100,6 +100,30 @@ export async function runCotWeekly(
     return json({ success: false, error: upsertError.message, run_id: runId }, 500)
   }
 
+  // Compute pct_26w and extreme_flag for each currency that was just upserted
+  const currencies = [...new Set(rows.map((r) => r.currency))]
+  for (const ccy of currencies) {
+    const { data: history } = await sb
+      .from('cot_positioning')
+      .select('id, net_position')
+      .eq('currency', ccy)
+      .order('report_date', { ascending: false })
+      .limit(26)
+
+    if (!history || history.length < 2) continue
+
+    const nets = history.map((h) => h.net_position).filter((n) => n != null) as number[]
+    const latestNet = nets[0]
+    const rank = nets.filter((n) => n <= latestNet).length
+    const pct26w = Math.round((rank / nets.length) * 100)
+    const extremeFlag = pct26w <= 10 ? 'SHORT' : pct26w >= 90 ? 'LONG' : null
+
+    await sb
+      .from('cot_positioning')
+      .update({ pct_26w: pct26w, extreme_flag: extremeFlag })
+      .eq('id', history[0].id)
+  }
+
   await markRunSuccess(sb, runId, rows.length, rows.length)
 
   return json({ success: true, run_id: runId, records_upserted: rows.length })

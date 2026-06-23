@@ -51,7 +51,7 @@ async function fetchWorldBankCpi(
     `https://api.worldbank.org/v2/country/${encodeURIComponent(iso2)}` +
     `/indicator/${INDICATOR}?format=json&mrv=2&per_page=2`
 
-  const resp = await fetch(url)
+  const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) })
   if (!resp.ok) throw new Error(`World Bank HTTP ${resp.status} for ${iso2}`)
 
   const data = await resp.json()
